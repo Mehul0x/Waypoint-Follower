@@ -29,17 +29,9 @@ class trajGen : public rclcpp::Node {
         this->declare_parameter<std::vector<double>>("waypoints.y", std::vector<double>());
         this->declare_parameter<std::vector<double>>("waypoints.z", std::vector<double>()); // Declare Z parameter
 
-        // Retrieve the parameters
         x = this->get_parameter("waypoints.x").as_double_array();
         y = this->get_parameter("waypoints.y").as_double_array();
         z = this->get_parameter("waypoints.z").as_double_array(); // Retrieve Z parameter
-
-        // Check if waypoints were loaded successfully
-        if (x.empty() || y.empty() || x.size() != y.size()) {
-            RCLCPP_ERROR(this->get_logger(), "Failed to load valid waypoints. Ensure 'waypoints.x' and 'waypoints.y' parameters are set and have the same number of elements.");
-            rclcpp::shutdown();
-            return;
-        }
 
         // Handle the Z coordinate: default to 0 if not provided or handle size mismatch
         if (z.empty()) {
@@ -95,7 +87,7 @@ class trajGen : public rclcpp::Node {
         }
 
         if(x.size()>2)
-          spline.set_points(x,y, tk::spline::cspline);
+          spline.set_points(x,y, tk::spline::cspline_hermite);
         // RCLCPP_INFO(this->get_logger(), "spline generated");
         
 

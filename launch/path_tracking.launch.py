@@ -30,7 +30,7 @@ def generate_launch_description():
 
     gazebo_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(turtlebot3_gazebo_pkg, 'launch', 'empty_world.launch.py')
+            os.path.join(waypoint_follower_pkg, 'launch', 'custom_world.launch.py')
         )
     )
 
