@@ -1,6 +1,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <vector>
 #include "rclcpp/rclcpp.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
@@ -23,10 +24,35 @@ class trajGen : public rclcpp::Node {
   public:
     trajGen() : Node("traj_gen_vis_node")
     {
-        //take waypoints, should create a setwaypoints()
+        // Declare and load waypoint parameters from a YAML file
+        this->declare_parameter<std::vector<double>>("waypoints.x", std::vector<double>());
+        this->declare_parameter<std::vector<double>>("waypoints.y", std::vector<double>());
+        this->declare_parameter<std::vector<double>>("waypoints.z", std::vector<double>()); // Declare Z parameter
+
+        // Retrieve the parameters
+        x = this->get_parameter("waypoints.x").as_double_array();
+        y = this->get_parameter("waypoints.y").as_double_array();
+        z = this->get_parameter("waypoints.z").as_double_array(); // Retrieve Z parameter
+
+        // Check if waypoints were loaded successfully
+        if (x.empty() || y.empty() || x.size() != y.size()) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to load valid waypoints. Ensure 'waypoints.x' and 'waypoints.y' parameters are set and have the same number of elements.");
+            rclcpp::shutdown();
+            return;
+        }
+
+        // Handle the Z coordinate: default to 0 if not provided or handle size mismatch
+        if (z.empty()) {
+            RCLCPP_INFO(this->get_logger(), "'waypoints.z' not provided. Defaulting all z-coordinates to 0.");
+            z.resize(x.size(), 0.0); // Fill with zeros
+        }
+
+        RCLCPP_INFO(this->get_logger(), "Successfully loaded %zu waypoints (x, y, z).", x.size());
         
-        x = { 0.5, 1, 2, 3, 4, 5 };
-        y = { 1, 3, 3, 2, 1, 2 };
+        // Keep the original structure by copying to waypt_ variables for the publish_waypoints function
+        waypt_x = x;
+        waypt_y = y;
+        waypt_z = z; // Copy z coordinates
 
         // Create publishers
         path_publisher_ = this->create_publisher<nav_msgs::msg::Path>("smoothed_path", 10);
@@ -102,7 +128,8 @@ class trajGen : public rclcpp::Node {
     {
         visualization_msgs::msg::MarkerArray marker_array;
         int id = 0;
-        for (size_t i=0; i<x.size();i++)
+        // Use waypt_x.size() for the loop condition as all vectors are guaranteed to have the same size
+        for (size_t i=0; i < waypt_x.size(); i++)
         {
             visualization_msgs::msg::Marker marker;
             marker.header.frame_id = "odom"; // IMPORTANT: Use a common frame
@@ -166,10 +193,12 @@ class trajGen : public rclcpp::Node {
     double speed = 1; //dummy value
     double heading =0; 
     
-    std::vector<double> x ;
-    std::vector<double> y ;
-    std::vector<double> waypt_x = { 0.5, 1, 2, 3, 4, 5 };
-    std::vector<double> waypt_y = { 1, 3, 3, 2, 1, 2 };
+    std::vector<double> x;
+    std::vector<double> y;
+    std::vector<double> z; // New member for z coordinates
+    std::vector<double> waypt_x;
+    std::vector<double> waypt_y;
+    std::vector<double> waypt_z; // New member for z waypoint markers
     tk::spline spline; 
     
 };

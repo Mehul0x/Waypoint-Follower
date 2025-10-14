@@ -10,7 +10,9 @@ from launch.substitutions import LaunchConfiguration
 def generate_launch_description():
     # Get the path to the waypoint_follower package
     waypoint_follower_pkg = get_package_share_directory('waypoint_follower')
-    
+
+    config_file_path = os.path.join(waypoint_follower_pkg, 'config', 'waypoints.yaml')
+
     # Get the path to the turtlebot3_gazebo package
     turtlebot3_gazebo_pkg = get_package_share_directory('turtlebot3_gazebo')
 
@@ -37,7 +39,8 @@ def generate_launch_description():
         package='waypoint_follower',
         executable='traj_gen_vis_node',
         name='traj_gen_vis_node',
-        output='screen'
+        output='screen',
+        parameters=[config_file_path]
     )
 
     # Node for the trajectory tracking controller
