@@ -33,6 +33,13 @@ class trajGen : public rclcpp::Node {
         y = this->get_parameter("waypoints.y").as_double_array();
         z = this->get_parameter("waypoints.z").as_double_array(); // Retrieve Z parameter
 
+        if (x.size() != y.size()) {
+          RCLCPP_FATAL(this->get_logger(), 
+              "Waypoint parameter mismatch: 'waypoints.x' and 'waypoints.y' must have the same number of elements. "
+              "Got %zu for x and %zu for y. Shutting down.", x.size(), y.size());
+          throw std::runtime_error("Waypoint dimension mismatch.");
+        }
+
         // Handle the Z coordinate: default to 0 if not provided or handle size mismatch
         if (z.empty()) {
             RCLCPP_INFO(this->get_logger(), "'waypoints.z' not provided. Defaulting all z-coordinates to 0.");
@@ -99,7 +106,7 @@ class trajGen : public rclcpp::Node {
             for (int j = 0; j < 1000; ++j) {
                 // double t = static_cast<double>(j) / 1000.0;
 
-                //new x = speed * cos(heading) * t
+                //new x = speed * cos(heading) * t + prev x
                 x_hat = 0.001 * speed * cos(std::atan( spline.deriv(1, x_hat))) + x_hat; //forward euler integration
                 y_hat = spline(x_hat);
 
