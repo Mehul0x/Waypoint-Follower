@@ -60,6 +60,9 @@ It determines the error angle to the target, and then uses that angle, the objec
 
  The waypoints need to have x>0 and need to be strictly increasing.
 
-# Extending to a real robot
+## Obstacle Avoidance (the one implemented)
+
+The robot uses the laser scan data, it checks if there is any obstacle in a radius of 0.5m, then it checks the angle at which contact is possible, if it may collide, it slows down and turns anti clockwise.
+
 
 
