@@ -55,4 +55,11 @@ We interpoalte the points, with fixed time intervals, we account for the speed a
 The ontroller calculates the turning rate required for an object to smoothly steer towards a target.
 
 It determines the error angle to the target, and then uses that angle, the object's forward speed, and its distance from the target to compute a turning velocity that ensures a smooth, curved path to the destination.
-   
+
+## Limiatation 
+
+ The waypoints need to have x>0 and need to be strictly increasing.
+
+# Extending to a real robot
+
+
