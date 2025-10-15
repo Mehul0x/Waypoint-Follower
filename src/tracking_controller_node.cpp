@@ -75,17 +75,6 @@ private:
         size_t closest_point_idx = 0;
         double min_dist_sq = -1.0;
 
-        // for (size_t i = 0; i < current_path_->poses.size(); ++i)
-        // {
-        //     double dist_sq = pow(current_position.x - current_path_->poses[i].pose.position.x, 2) +
-        //                      pow(current_position.y - current_path_->poses[i].pose.position.y, 2);
-        //     if (min_dist_sq < 0 || dist_sq < min_dist_sq)
-        //     {
-        //         min_dist_sq = dist_sq;
-        //         closest_point_idx = i;
-        //     }
-        // }
-
         // Search forward from the closest point to find the lookahead point
         size_t target_idx = closest_point_idx;
         while (target_idx < current_path_->poses.size() - 1)
@@ -130,8 +119,10 @@ private:
         else{
             twist_msg.twist.linear.x = linear_velocity;
 
-            if(obstacle_angle <= 5.39 && obstacle_angle >= 4.02) // obstacle on right
+            if(obstacle_angle <= 5.39 && obstacle_angle >= 4.02){ // obstacle on right
+                twist_msg.twist.linear.x = 1.0;
                 twist_msg.twist.angular.z = 0.0; //go straight
+            }
             else 
                 twist_msg.twist.angular.z = 0.15; //turn left
         }
@@ -158,10 +149,10 @@ private:
             float dist = last_scan_->ranges[i];
             auto angle = angle_min + i * angle_increment;
 
-            if(dist < 0.7 && dist >last_scan_->range_min ){
+            if(dist < 0.5 && dist >last_scan_->range_min ){
                 if(angle > 5.39 || angle < 0.88){
                     RCLCPP_INFO(this->get_logger(), "Obstacle detected at angle: %.2f radians, distance: %.2f meters", angle, dist);
-                    linear_velocity = 0.1;
+                    linear_velocity = 0.03;
                     return {false, angle};
                 }
             }
