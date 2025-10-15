@@ -114,20 +114,26 @@ private:
         double dist_to_final_point = std::sqrt(pow(current_path_->poses.back().pose.position.x - current_position.x, 2) + 
                                                pow(current_path_->poses.back().pose.position.y - current_position.y, 2));
 
+        auto [path_valid, obstacle_angle] = check_path_validity();
+
         if (dist_to_final_point < 0.2) // Stop if within 20cm of the final goal
         {
             stop_robot();
             RCLCPP_INFO(this->get_logger(), "Reached the end of the path. Robot stopped.");
             current_path_ = nullptr; // Clear path to prevent restarting
         }
-        else if(check_path_validity())
+        else if(path_valid)
         {
             twist_msg.twist.linear.x = linear_velocity;
             twist_msg.twist.angular.z = angular_velocity;
         }
         else{
             twist_msg.twist.linear.x = linear_velocity;
-            twist_msg.twist.angular.z = 0.15;
+
+            if(obstacle_angle <= 5.39 && obstacle_angle >= 4.02) // obstacle on right
+                twist_msg.twist.angular.z = 0.0; //go straight
+            else 
+                twist_msg.twist.angular.z = 0.15; //turn left
         }
 
         cmd_vel_pub_->publish(twist_msg);
@@ -141,9 +147,9 @@ private:
         cmd_vel_pub_->publish(stop_msg);
     }
 
-    bool check_path_validity() {
+    std::pair<bool, double> check_path_validity() {
         if(!last_scan_) {
-            return true; // Assume path is valid if no scan data
+            return {true,0}; // Assume path is valid if no scan data
         }
         auto angle_increment = last_scan_->angle_increment;
         auto angle_min = last_scan_->angle_min;
@@ -152,17 +158,17 @@ private:
             float dist = last_scan_->ranges[i];
             auto angle = angle_min + i * angle_increment;
 
-            if(dist < 0.5 && dist >last_scan_->range_min ){
-                if(angle > 4 || angle < 2){
+            if(dist < 0.7 && dist >last_scan_->range_min ){
+                if(angle > 5.39 || angle < 0.88){
                     RCLCPP_INFO(this->get_logger(), "Obstacle detected at angle: %.2f radians, distance: %.2f meters", angle, dist);
                     linear_velocity = 0.1;
-                    return false;
+                    return {false, angle};
                 }
             }
      
         }
         linear_velocity = 1.0;
-        return true;
+        return {true,0};
     }
 
     // Member variables
