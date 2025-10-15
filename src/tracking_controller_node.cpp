@@ -5,6 +5,7 @@
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "tf2/utils.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "sensor_msgs/msg/laser_scan.hpp"
 #include <cmath>
 #include <iostream>
 
@@ -19,12 +20,12 @@ public:
             "/smoothed_path", 10, std::bind(&TrackingController::path_callback, this, std::placeholders::_1));
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
             "/odom", 10, std::bind(&TrackingController::odom_callback, this, std::placeholders::_1));
+        scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
+            "/scan", rclcpp::SensorDataQoS(), std::bind(&TrackingController::scan_callback, this, std::placeholders::_1));
 
         // Publisher
         cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/cmd_vel", 10); //need twiststamped
         
-        
-
         control_timer_ = this->create_wall_timer(
             std::chrono::milliseconds(50),  //20Hz
             std::bind(&TrackingController::control_loop, this));
@@ -53,15 +54,20 @@ private:
         odometry_received_ = true;
     }
 
+    void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
+    {
+        last_scan_ = msg;
+        scan_received_ = true;
+    }
+
     void control_loop()
     {
-        if (!odometry_received_ || !current_path_ || current_path_->poses.empty())
+        if (!odometry_received_ || !scan_received_ || current_path_->poses.empty())
         {
             // If no path or odometry, do nothing (or publish zero velocity)
             return;
         }
 
-        // 1. Find the target point on the path
         geometry_msgs::msg::Point current_position = current_pose_.position;
         double current_yaw = tf2::getYaw(current_pose_.orientation); //should publish this
 
@@ -69,16 +75,16 @@ private:
         size_t closest_point_idx = 0;
         double min_dist_sq = -1.0;
 
-        for (size_t i = 0; i < current_path_->poses.size(); ++i)
-        {
-            double dist_sq = pow(current_position.x - current_path_->poses[i].pose.position.x, 2) +
-                             pow(current_position.y - current_path_->poses[i].pose.position.y, 2);
-            if (min_dist_sq < 0 || dist_sq < min_dist_sq)
-            {
-                min_dist_sq = dist_sq;
-                closest_point_idx = i;
-            }
-        }
+        // for (size_t i = 0; i < current_path_->poses.size(); ++i)
+        // {
+        //     double dist_sq = pow(current_position.x - current_path_->poses[i].pose.position.x, 2) +
+        //                      pow(current_position.y - current_path_->poses[i].pose.position.y, 2);
+        //     if (min_dist_sq < 0 || dist_sq < min_dist_sq)
+        //     {
+        //         min_dist_sq = dist_sq;
+        //         closest_point_idx = i;
+        //     }
+        // }
 
         // Search forward from the closest point to find the lookahead point
         size_t target_idx = closest_point_idx;
@@ -100,6 +106,7 @@ private:
         double dist_to_target = std::sqrt(pow(target_point.x - current_position.x, 2) + pow(target_point.y - current_position.y, 2));
         double angular_velocity = (2.0 * linear_velocity * sin(alpha)) / dist_to_target;
 
+
         // 3. Publish the Twist message
         auto twist_msg = geometry_msgs::msg::TwistStamped();
         
@@ -113,10 +120,14 @@ private:
             RCLCPP_INFO(this->get_logger(), "Reached the end of the path. Robot stopped.");
             current_path_ = nullptr; // Clear path to prevent restarting
         }
-        else
+        else if(check_path_validity())
         {
             twist_msg.twist.linear.x = linear_velocity;
             twist_msg.twist.angular.z = angular_velocity;
+        }
+        else{
+            twist_msg.twist.linear.x = linear_velocity;
+            twist_msg.twist.angular.z = 0.15;
         }
 
         cmd_vel_pub_->publish(twist_msg);
@@ -130,15 +141,42 @@ private:
         cmd_vel_pub_->publish(stop_msg);
     }
 
+    bool check_path_validity() {
+        if(!last_scan_) {
+            return true; // Assume path is valid if no scan data
+        }
+        auto angle_increment = last_scan_->angle_increment;
+        auto angle_min = last_scan_->angle_min;
+
+        for(uint32_t i=0; i<last_scan_->ranges.size(); ++i) {
+            float dist = last_scan_->ranges[i];
+            auto angle = angle_min + i * angle_increment;
+
+            if(dist < 0.5 && dist >last_scan_->range_min ){
+                if(angle > 4 || angle < 2){
+                    RCLCPP_INFO(this->get_logger(), "Obstacle detected at angle: %.2f radians, distance: %.2f meters", angle, dist);
+                    linear_velocity = 0.1;
+                    return false;
+                }
+            }
+     
+        }
+        linear_velocity = 1.0;
+        return true;
+    }
+
     // Member variables
     rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+    rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
     rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr cmd_vel_pub_;
     rclcpp::TimerBase::SharedPtr control_timer_;
 
     nav_msgs::msg::Path::SharedPtr current_path_;
     geometry_msgs::msg::Pose current_pose_;
+    sensor_msgs::msg::LaserScan::SharedPtr last_scan_;
     bool odometry_received_ = false;
+    bool scan_received_ = false; 
 
     double lookahead_distance = 0.5;
     double linear_velocity = 1.0;

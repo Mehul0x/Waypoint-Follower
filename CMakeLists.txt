@@ -13,6 +13,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 # === Executable for Trajectory Generator ===
 add_executable(traj_gen_vis_node src/traj_gen_vis_node.cpp)
@@ -42,6 +43,7 @@ ament_target_dependencies(
   "geometry_msgs"
   "tf2"
   "tf2_geometry_msgs"
+  "sensor_msgs"
 )
 
 target_link_libraries(tracking_controller_node

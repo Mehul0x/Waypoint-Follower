@@ -182,7 +182,7 @@ class trajGen : public rclcpp::Node {
     geometry_msgs::msg::Pose current_pose_;
     double curr_x =0, curr_y=0;
 
-    double speed = 1; //dummy value
+    double speed = 1.0; //dummy value
     double heading =0; 
     
     std::vector<double> x;
